@@ -25,3 +25,9 @@ size. It is not connected to Dog. Safe integration still needs durable UID and
 UIDVALIDITY tracking, sender verification and account-link authorization. A
 matching From address, an allowlist, or a DKIM signature alone does not prove
 the sender controls a specific mailbox.
+
+## Ideas
+
+- Optionally show incoming mail flying into the video media window, with an
+  entrance effect. Keep this opt-in and protect private message contents from
+  appearing on a shared screen or stream without the recipient's consent.
