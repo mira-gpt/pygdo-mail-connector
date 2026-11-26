@@ -5,7 +5,7 @@ from gdo.mail_connector.module_mail_connector import module_mail_connector
 
 
 class MailRenderingTest(unittest.TestCase):
-    def test_skeleton_depends_on_mail_without_registering_a_connector(self):
+    def test_skeleton_depends_on_mail(self):
         self.assertEqual(['mail'], module_mail_connector().gdo_dependencies())
 
     def test_multipart_uses_html_to_text_for_plain_alternative(self):
