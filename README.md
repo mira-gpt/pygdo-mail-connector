@@ -16,6 +16,8 @@ Confirmed email addresses emit a confirmation event. The module schedules
 creation and linking of a mail-server account for that address; it refuses to
 take over an existing account linked elsewhere. Email addresses are not used as
 account names. These hooks need a loaded module and have not been deployed.
+During installation, existing non-mail users with confirmed addresses are also
+backfilled. Unconfirmed addresses and conflicting existing links are skipped.
 
 The IMAP reader is a standalone, read-only TLS primitive: it polls or uses IDLE
 when available, fetches by UID without marking messages read, and limits message

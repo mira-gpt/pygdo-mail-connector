@@ -24,6 +24,7 @@ class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
              patch('gdo.mail_connector.module_mail_connector.GDT_Email') as field, \
              patch('gdo.mail_connector.module_mail_connector.module_mail.instance') as mail_module, \
              patch('gdo.mail_connector.module_mail_connector.GDO_Server.get_by_connector', return_value=None), \
+             patch.object(module_mail_connector, 'backfill_confirmed_users', new_callable=AsyncMock), \
              patch('gdo.mail_connector.module_mail_connector.GDO_Server.blank') as blank:
             field.return_value.validate.return_value = True
             blank.return_value.insert.return_value = server
@@ -37,10 +38,26 @@ class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
         with patch('gdo.mail_connector.module_mail_connector.Application.config', return_value='dog@example.test'), \
              patch('gdo.mail_connector.module_mail_connector.GDT_Email') as field, \
              patch('gdo.mail_connector.module_mail_connector.GDO_Server.get_by_connector', return_value=server), \
+             patch.object(module_mail_connector, 'backfill_confirmed_users', new_callable=AsyncMock), \
              patch('gdo.mail_connector.module_mail_connector.GDO_Server.blank') as blank:
             field.return_value.validate.return_value = True
             await module_mail_connector().gdo_install()
         blank.assert_not_called()
+
+    async def test_backfill_only_uses_confirmed_non_mail_users(self):
+        module = module_mail_connector()
+        server, confirmed, unconfirmed, mail_account = (MagicMock() for _ in range(4))
+        server.get_id.return_value = 8
+        confirmed.get_server_id.return_value = 1
+        confirmed.get_mail.return_value = 'confirmed@example.test'
+        unconfirmed.get_server_id.return_value = 1
+        unconfirmed.get_mail.return_value = None
+        mail_account.get_server_id.return_value = 8
+        with patch('gdo.mail_connector.module_mail_connector.GDO_User.table') as table, \
+             patch.object(module, 'link_confirmed_email', new_callable=AsyncMock) as link:
+            table.return_value.select.return_value.exec.return_value.fetch_object.side_effect = [confirmed, unconfirmed, mail_account, None]
+            await module.backfill_confirmed_users(server)
+        link.assert_awaited_once_with(confirmed, 'confirmed@example.test', server)
 
     async def test_unimplemented_transport_never_reports_connected(self):
         connector = Mail()

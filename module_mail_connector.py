@@ -5,6 +5,7 @@ from gdo.base.Application import Application
 from gdo.base.Logger import Logger
 from gdo.core.Connector import Connector
 from gdo.core.GDO_Server import GDO_Server
+from gdo.core.GDO_User import GDO_User
 from gdo.core.GDT_Secret import GDT_Secret
 from gdo.core.GDT_String import GDT_String
 from gdo.core.GDT_UInt import GDT_UInt
@@ -93,3 +94,12 @@ class module_mail_connector(GDO_Module):
             dog = await server.create_user('Dog', 'Dog')
         if not dog.get_mail(confirmed=True):
             module_mail.instance().set_email_for(dog, sender, confirmed=True)
+        await self.backfill_confirmed_users(server)
+
+    async def backfill_confirmed_users(self, server):
+        result = GDO_User.table().select().exec()
+        while user := result.fetch_object():
+            if str(user.get_server_id()) == str(server.get_id()):
+                continue
+            if email := user.get_mail(confirmed=True):
+                await self.link_confirmed_email(user, email, server)
