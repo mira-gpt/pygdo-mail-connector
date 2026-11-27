@@ -3,20 +3,19 @@
 > **Security warning:** This connector is experimental and insecure for
 > authenticating incoming mail. Sender addresses and mail headers can be
 > forged; do not grant account permissions or run privileged commands based
-> on them. Incoming transport and sender verification are not yet implemented.
-> Keep the connector disabled and do not use it with a production mailbox.
+> on them. Sender verification is not implemented. Keep the connector disabled
+> until its mailbox access and event handoff have been tested in isolation.
 
-An inactive module skeleton for a future PyGDO email connector. Mail rendering uses HTML with a
+An experimental PyGDO email connector. Mail rendering uses HTML with a
 plain-text alternative derived through PyGDO's `Strings.html_to_text`.
 
 The module registers the `{mail}` connector and creates a disabled mail server
 and `Dog{mail}` user on install if missing. Set `mail.sender` to the configured
 Dog email address before installation. Outgoing user mail uses the existing
 PyGDO Mail API and protected mail configuration; recipients must have a
-confirmed address. Inbound transport, sender authentication policy and mailbox
-ownership are not implemented yet. Do not enable this as a connector or
-point it at a production mailbox until those parts have been designed and
-tested. It does not replace or consume Mira's existing inbox queue.
+confirmed address. The inbound transport archives mail but does not yet verify
+senders or turn mail into PyGDO user messages. It does not replace or consume
+Mira's existing inbox queue.
 
 Confirmed email addresses emit a confirmation event. The module schedules
 creation and linking of a mail-server account for that address; it refuses to
@@ -25,18 +24,27 @@ account names. These hooks need a loaded module and have not been deployed.
 During installation, existing non-mail users with confirmed addresses are also
 backfilled. Unconfirmed addresses and conflicting existing links are skipped.
 
-The IMAP reader is a standalone, read-only TLS primitive: it polls or uses IDLE
-when available, fetches by UID without marking messages read, and limits message
-size. It is not connected to Dog. Safe integration still needs durable UID and
-UIDVALIDITY tracking, sender verification and account-link authorization. A
+The IMAP reader connects over TLS, polls or uses IDLE when available, fetches
+by UID without marking messages read, and limits message size. It archives raw
+messages under `files/mails/` and keeps a durable UID/UIDVALIDITY checkpoint.
+Sender verification and account-link authorization are not implemented. A
 matching From address, an allowlist, or a DKIM signature alone does not prove
 the sender controls a specific mailbox.
 
-The incoming parser and UID checkpoint are development primitives, not an
-active connector: `From` and `Return-Path` are untrusted claims, and a
-checkpoint cannot make message delivery exactly once by itself. The checkpoint
-rejects a changed UIDVALIDITY rather than guessing whether old UIDs are safe.
-Verification, ghost-only dispatch and the polling integration remain to be built.
+`From` and `Return-Path` are untrusted claims. A checkpoint cannot make message
+delivery exactly once: a crash between handing off an event and saving the
+checkpoint can cause a repeat. The checkpoint rejects a changed UIDVALIDITY
+rather than guessing whether old UIDs are safe. Oversized messages stop the
+batch for operator review.
+
+For an explicitly opted-in Mira mailbox, set module configuration
+`mail_connector_mira_inbox` to `1`; each archived message is then sent to the
+Mira session as `$inbox <path>`. Default is `0` for installations without Mira.
+On first use, the cursor starts at UID zero, so existing messages in the
+selected mailbox will be archived and, when opted in, generate events too.
+The event is submitted without interrupting the current task; submission is
+not confirmation that it was processed. Ensure the Dog and Mira accounts can
+read the private archive, and check web-server access rules independently.
 
 ## Private IMAP settings
 
@@ -47,8 +55,8 @@ in the module configuration database override these defaults. Saving settings
 through PyGDO stores them in the database, including the password; `GDT_Secret`
 masks display but does not encrypt it. Protect database backups accordingly.
 Restart or reload the module to pick up file changes. The IMAP host and password
-must be supplied locally. This does not enable or connect the inactive connector,
-and outgoing SMTP remains configured separately in the existing mail settings.
+must be supplied locally. Configuring them does not itself enable the disabled
+server; outgoing SMTP remains configured separately in the existing mail settings.
 
 The connector uses the existing `core.secret` as its salt. Keep it stable and
 back it up securely: changing it changes account identifiers. The connector forms `mail_` plus 16 hexadecimal MD5

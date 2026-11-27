@@ -1,5 +1,6 @@
 """Durable IMAP cursor; delivery must be idempotent across crashes."""
 import sqlite3
+from contextlib import closing
 
 
 class UidValidityChanged(RuntimeError):
@@ -15,7 +16,7 @@ class UidCheckpoint:
             raise ValueError('Invalid mailbox or UIDVALIDITY')
         if isinstance(uid, bool) or not isinstance(uid, int) or uid < 0:
             raise ValueError('Invalid UID')
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute('CREATE TABLE IF NOT EXISTS cursor (mailbox TEXT PRIMARY KEY, validity INTEGER NOT NULL, uid INTEGER NOT NULL)')
             db.execute('BEGIN IMMEDIATE')
             row = db.execute('SELECT validity, uid FROM cursor WHERE mailbox = ?', (mailbox,)).fetchone()

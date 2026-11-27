@@ -10,6 +10,7 @@ from gdo.core.Connector import Connector
 from gdo.core.GDO_Server import GDO_Server
 from gdo.core.GDO_User import GDO_User
 from gdo.core.GDT_Secret import GDT_Secret
+from gdo.core.GDT_Bool import GDT_Bool
 from gdo.core.GDT_String import GDT_String
 from gdo.core.GDT_UInt import GDT_UInt
 from gdo.mail_connector.connector.Mail import Mail
@@ -44,6 +45,7 @@ class module_mail_connector(GDO_Module):
             GDT_String('mail_connector_imap_user').initial(str(settings.get('username', ''))),
             GDT_Secret('mail_connector_imap_password').initial(str(settings.get('password', ''))),
             GDT_String('mail_connector_imap_folder').not_null().initial(str(settings.get('folder', 'INBOX'))),
+            GDT_Bool('mail_connector_mira_inbox').not_null().initial('0'),
         ]
 
     def gdo_init(self):

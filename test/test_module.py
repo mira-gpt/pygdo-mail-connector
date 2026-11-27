@@ -96,10 +96,32 @@ class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
             await module.backfill_confirmed_users(server)
         link.assert_awaited_once_with(confirmed, 'confirmed@example.test', server)
 
-    async def test_unimplemented_transport_never_reports_connected(self):
+    async def test_missing_imap_configuration_never_reports_connected(self):
         connector = Mail()
-        self.assertFalse(await connector.gdo_connect())
+        config = MagicMock()
+        config.get_config_val.return_value = ''
+        with patch('gdo.mail_connector.module_mail_connector.module_mail_connector.instance', return_value=config), \
+             patch('gdo.mail_connector.connector.Mail.Logger.warning'):
+            self.assertFalse(await connector.gdo_connect())
         self.assertFalse(connector.is_connected())
+
+    async def test_incoming_mail_triggers_opted_in_mira_inbox(self):
+        connector = Mail()
+        config = MagicMock()
+        config.get_config_value.return_value = True
+        with patch('gdo.mail_connector.module_mail_connector.module_mail_connector.instance', return_value=config), \
+             patch('gdo.mira.util.send_to_mira') as send:
+            await connector._incoming_mail('/private/mail.eml', None)
+        send.assert_called_once_with('$inbox /private/mail.eml', interrupt=False)
+
+    async def test_incoming_mail_does_not_trigger_without_opt_in(self):
+        connector = Mail()
+        config = MagicMock()
+        config.get_config_value.return_value = False
+        with patch('gdo.mail_connector.module_mail_connector.module_mail_connector.instance', return_value=config), \
+             patch('gdo.mira.util.send_to_mira') as send:
+            await connector._incoming_mail('/private/mail.eml', None)
+        send.assert_not_called()
 
     async def test_outgoing_mail_uses_mail_module_and_confirmed_address(self):
         message = MagicMock()
