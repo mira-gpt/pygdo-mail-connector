@@ -81,14 +81,19 @@ class module_mail_connector(GDO_Module):
         # Account names are ASCII and limited to 64 chars.  Hash the entire
         # address instead of putting an email address into the user name.
         name = self.mail_account_name(email)
+        # GDT_UserName limits display names to 32 characters; user_name can
+        # be up to 64. The hashed mail user_name remains the unique lookup key.
+        displayname = user.get_name()[:32]
         existing = server.get_user_by_name(name)
         if existing:
             linked = existing.get_linked_user()
             if (existing.get_mail(confirmed=False) != email or not linked
                     or str(linked.get_id()) != str(master.get_id())):
                 Logger.warning('Mail account already exists; refusing automatic relink.')
+            elif existing.get_displayname() != displayname:
+                existing.save_val('user_displayname', displayname)
             return
-        mail_user = await server.create_user(name, name)
+        mail_user = await server.create_user(name, displayname)
         # Check again after the asynchronous creation and do not attach a
         # now-stale confirmation to the wrong account.
         if user.get_mail(confirmed=True) != email:

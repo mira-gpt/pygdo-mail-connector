@@ -89,6 +89,20 @@ class ImapReader:
             raise ValueError('Invalid IMAP UID')
         return await self._run(self._fetch_after, last_uid)
 
+    def _uidvalidity(self):
+        status, data = self.client.response('UIDVALIDITY')
+        if status != 'UIDVALIDITY' or not data or len(data) != 1 or not data[0]:
+            raise RuntimeError('IMAP UIDVALIDITY unavailable')
+        value = data[0]
+        if not isinstance(value, bytes) or not value.isdigit() or int(value) < 1:
+            raise RuntimeError('Invalid IMAP UIDVALIDITY')
+        return int(value)
+
+    async def uidvalidity(self):
+        if self.client is None:
+            raise RuntimeError('IMAP reader is not connected')
+        return await self._run(self._uidvalidity)
+
     async def close(self):
         if self.client is not None:
             client, self.client = self.client, None

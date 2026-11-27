@@ -5,6 +5,15 @@ from gdo.mail_connector.ImapReader import ImapReader
 
 
 class ImapReaderTest(unittest.IsolatedAsyncioTestCase):
+    async def test_uidvalidity_is_required_and_validated(self):
+        reader = ImapReader('example.test', 993, 'user', 'secret')
+        reader.client = MagicMock()
+        reader.client.response.return_value = ('UIDVALIDITY', [b'12345'])
+        self.assertEqual(12345, await reader.uidvalidity())
+        for data in ([b'0'], [b'invalid'], [None], []):
+            reader.client.response.return_value = ('UIDVALIDITY', data)
+            with self.assertRaises(RuntimeError):
+                await reader.uidvalidity()
     async def test_readonly_connect_fetch_and_close(self):
         client = MagicMock()
         client.select.return_value = ('OK', [b'2'])

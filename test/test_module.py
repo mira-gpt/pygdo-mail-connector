@@ -122,6 +122,7 @@ class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
         module = module_mail_connector()
         user, server, mail_user = MagicMock(), MagicMock(), MagicMock()
         user.get_mail.return_value = 'person@example.test'
+        user.get_name.return_value = 'person'
         user.get_effective_user.return_value = user
         user.get_id.return_value = 123
         server.get_user_by_name.return_value = None
@@ -130,7 +131,7 @@ class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
              patch('gdo.mail_connector.module_mail_connector.module_mail.instance') as mail_module:
             await module.link_confirmed_email(user, 'person@example.test', server)
             name = module.mail_account_name('person@example.test')
-        server.create_user.assert_awaited_once_with(name, name)
+        server.create_user.assert_awaited_once_with(name, 'person')
         self.assertEqual(29, len(name))
         mail_module.return_value.set_email_for.assert_called_once_with(mail_user, 'person@example.test', confirmed=True)
         mail_user.save_val.assert_called_once_with('user_link', 123)
@@ -146,6 +147,22 @@ class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
              patch('gdo.mail_connector.module_mail_connector.Logger.warning'):
             await module.link_confirmed_email(user, 'person@example.test', server)
         existing.save_val.assert_not_called()
+        server.create_user.assert_not_called()
+
+    async def test_existing_confirmed_link_updates_display_name_only(self):
+        module = module_mail_connector()
+        user, server, existing = MagicMock(), MagicMock(), MagicMock()
+        user.get_mail.return_value = 'person@example.test'
+        user.get_name.return_value = 'a' * 40
+        user.get_effective_user.return_value = user
+        user.get_id.return_value = 123
+        server.get_user_by_name.return_value = existing
+        existing.get_mail.return_value = 'person@example.test'
+        existing.get_linked_user.return_value = user
+        existing.get_displayname.return_value = 'old'
+        with patch('gdo.mail_connector.module_mail_connector.Application.config', return_value='test-salt'):
+            await module.link_confirmed_email(user, 'person@example.test', server)
+        existing.save_val.assert_called_once_with('user_displayname', 'a' * 32)
         server.create_user.assert_not_called()
 
     async def test_stale_confirmation_does_not_create_user(self):

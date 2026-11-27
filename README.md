@@ -1,5 +1,11 @@
 # PyGDO Mail Connector
 
+> **Security warning:** This connector is experimental and insecure for
+> authenticating incoming mail. Sender addresses and mail headers can be
+> forged; do not grant account permissions or run privileged commands based
+> on them. Incoming transport and sender verification are not yet implemented.
+> Keep the connector disabled and do not use it with a production mailbox.
+
 An inactive module skeleton for a future PyGDO email connector. Mail rendering uses HTML with a
 plain-text alternative derived through PyGDO's `Strings.html_to_text`.
 
@@ -25,6 +31,12 @@ size. It is not connected to Dog. Safe integration still needs durable UID and
 UIDVALIDITY tracking, sender verification and account-link authorization. A
 matching From address, an allowlist, or a DKIM signature alone does not prove
 the sender controls a specific mailbox.
+
+The incoming parser and UID checkpoint are development primitives, not an
+active connector: `From` and `Return-Path` are untrusted claims, and a
+checkpoint cannot make message delivery exactly once by itself. The checkpoint
+rejects a changed UIDVALIDITY rather than guessing whether old UIDs are safe.
+Verification, ghost-only dispatch and the polling integration remain to be built.
 
 ## Private IMAP settings
 
