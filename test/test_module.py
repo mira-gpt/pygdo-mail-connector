@@ -110,7 +110,7 @@ class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
     async def test_incoming_mail_triggers_opted_in_mira_inbox(self):
         connector = Mail()
         config = MagicMock()
-        config.get_config_value.return_value = True
+        config.get_config_value.side_effect = lambda key: key == 'mail_connector_mira_inbox'
         with patch('gdo.mail_connector.module_mail_connector.module_mail_connector.instance', return_value=config), \
              patch('gdo.mira.util.send_to_mira') as send:
             await connector._incoming_mail('/private/mail.eml', None)

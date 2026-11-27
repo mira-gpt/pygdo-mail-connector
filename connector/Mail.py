@@ -59,9 +59,26 @@ class Mail(Connector):
 
     async def _incoming_mail(self, path, parsed):
         from gdo.mail_connector.module_mail_connector import module_mail_connector
-        if module_mail_connector.instance().get_config_value('mail_connector_mira_inbox'):
+        module = module_mail_connector.instance()
+        if module.get_config_value('mail_connector_mira_inbox'):
             from gdo.mira.util import send_to_mira
             await asyncio.to_thread(send_to_mira, f'$inbox {path}', interrupt=False)
+        if module.get_config_value('mail_connector_userstuff') and parsed.text.strip():
+            await self._incoming_message(parsed)
+
+    async def _incoming_message(self, parsed):
+        """Dispatch unverified mail as a ghost, never as a linked account."""
+        from gdo.base.Message import Message
+        from gdo.core.GDO_User import GDO_User
+
+        message = Message(parsed.text, Mode.render_mail)
+        message.env_server(self._server).env_user(GDO_User.ghost(), True)
+        message.platform_identity(None, trusted=False)
+        # These are claims, not authenticated identities or reply addresses.
+        message.mail_claimed_from = parsed.claimed_from
+        message.mail_envelope_from = parsed.envelope_from
+        message.mail_subject = parsed.subject
+        await message.execute()
 
     async def _poll_loop(self):
         try:

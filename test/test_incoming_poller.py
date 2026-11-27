@@ -8,9 +8,44 @@ from gdo.mail_connector.IncomingPoller import IncomingPoller
 from gdo.mail_connector.MailArchive import MailArchive
 from gdo.mail_connector.UidCheckpoint import UidCheckpoint
 from gdo.mail_connector.connector.Mail import Mail
+from gdo.mail_connector.IncomingMail import parse_incoming
 
 
 class IncomingPollerTest(unittest.IsolatedAsyncioTestCase):
+    async def test_userstuff_and_inbox_are_independent(self):
+        connector = Mail()
+        parsed = parse_incoming(b'From: owner@example.test\r\n\r\n.ping')
+        module = MagicMock()
+        with patch('gdo.mail_connector.module_mail_connector.module_mail_connector.instance', return_value=module), \
+             patch.object(connector, '_incoming_message', new_callable=AsyncMock) as dispatch, \
+             patch('gdo.mira.util.send_to_mira') as send:
+            module.get_config_value.side_effect = lambda key: key == 'mail_connector_userstuff'
+            await connector._incoming_mail(Path('/archive/message.eml'), parsed)
+            dispatch.assert_awaited_once_with(parsed)
+            send.assert_not_called()
+            dispatch.reset_mock()
+            module.get_config_value.return_value = False
+            module.get_config_value.side_effect = None
+            await connector._incoming_mail(Path('/archive/message.eml'), parsed)
+            dispatch.assert_not_awaited()
+
+    async def test_userstuff_uses_unauthenticated_ghost(self):
+        connector = Mail()
+        connector._server = MagicMock()
+        parsed = parse_incoming(b'From: owner@example.test\r\nReturn-Path: <other@example.test>\r\nSubject: Hi\r\n\r\n.ping')
+        ghost = MagicMock()
+        message = MagicMock()
+        message.env_server.return_value = message
+        message.execute = AsyncMock()
+        with patch('gdo.core.GDO_User.GDO_User.ghost', return_value=ghost), \
+             patch('gdo.base.Message.Message', return_value=message):
+            await connector._incoming_message(parsed)
+        message.env_user.assert_called_once_with(ghost, True)
+        message.platform_identity.assert_called_once_with(None, trusted=False)
+        self.assertEqual('owner@example.test', message.mail_claimed_from)
+        self.assertEqual('other@example.test', message.mail_envelope_from)
+        message.execute.assert_awaited_once()
+
     async def test_connector_connects_polls_handoffs_and_disconnects(self):
         with tempfile.TemporaryDirectory() as temp:
             reader = MagicMock()
@@ -27,7 +62,7 @@ class IncomingPollerTest(unittest.IsolatedAsyncioTestCase):
             values = {'mail_connector_imap_host': 'mail.example', 'mail_connector_imap_user': 'user',
                       'mail_connector_imap_password': 'test', 'mail_connector_imap_folder': 'INBOX'}
             module.get_config_val.side_effect = values.get
-            module.get_config_value.side_effect = lambda key: 993 if key == 'mail_connector_imap_port' else True
+            module.get_config_value.side_effect = lambda key: 993 if key == 'mail_connector_imap_port' else key == 'mail_connector_mira_inbox'
             connector = Mail()
             with patch('gdo.mail_connector.module_mail_connector.module_mail_connector.instance', return_value=module), \
                  patch('gdo.mail_connector.ImapReader.ImapReader', return_value=reader), \
@@ -51,7 +86,7 @@ class IncomingPollerTest(unittest.IsolatedAsyncioTestCase):
             reader.fetch_after.return_value = [(2, b'From: a@example.test\r\n\r\nHello')]
             connector = Mail()
             module = MagicMock()
-            module.get_config_value.return_value = True
+            module.get_config_value.side_effect = lambda key: key == 'mail_connector_mira_inbox'
             poller = IncomingPoller(reader, UidCheckpoint(Path(temp) / 'cursor.sqlite'),
                                     MailArchive(Path(temp) / 'mails'), 'box', connector._incoming_mail)
             with patch('gdo.mail_connector.module_mail_connector.module_mail_connector.instance', return_value=module), \
