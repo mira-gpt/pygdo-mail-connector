@@ -38,6 +38,14 @@ Restart or reload the module to pick up file changes. The IMAP host and password
 must be supplied locally. This does not enable or connect the inactive connector,
 and outgoing SMTP remains configured separately in the existing mail settings.
 
+The connector uses the existing `core.secret` as its salt. Keep it stable and
+back it up securely: changing it changes account identifiers. The connector forms `mail_` plus 16 hexadecimal MD5
+characters and eight CRC32 hexadecimal characters, both calculated once over
+the salt, a NUL separator and the UTF-8 email address. This is a compact
+identifier, not password hashing or strong protection against email guessing.
+Colliding existing account names are not automatically linked. Old account
+identifiers are not migrated or looked up by this scheme.
+
 ## Ideas
 
 - Optionally show incoming mail flying into the video media window, with an

@@ -11,6 +11,18 @@ from gdo.mail_connector.module_mail_connector import module_mail_connector
 
 
 class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
+    def test_account_name_is_short_salted_and_requires_salt(self):
+        module = module_mail_connector()
+        with patch('gdo.mail_connector.module_mail_connector.Application.config', return_value=''):
+            with self.assertRaises(ValueError):
+                module.mail_account_name('person@example.test')
+        with patch('gdo.mail_connector.module_mail_connector.Application.config', return_value='salt-a'):
+            first = module.mail_account_name('person@example.test')
+            self.assertEqual(first, module.mail_account_name('person@example.test'))
+        with patch('gdo.mail_connector.module_mail_connector.Application.config', return_value='salt-b'):
+            self.assertNotEqual(first, module.mail_account_name('person@example.test'))
+        self.assertRegex(first, r'^mail_[0-9a-f]{24}$')
+
     def test_imap_defaults_are_loaded_from_private_toml(self):
         Application.mode(Mode.render_cli)
         with tempfile.TemporaryDirectory() as directory:
@@ -114,8 +126,12 @@ class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
         user.get_id.return_value = 123
         server.get_user_by_name.return_value = None
         server.create_user = AsyncMock(return_value=mail_user)
-        with patch('gdo.mail_connector.module_mail_connector.module_mail.instance') as mail_module:
+        with patch('gdo.mail_connector.module_mail_connector.Application.config', return_value='test-salt'), \
+             patch('gdo.mail_connector.module_mail_connector.module_mail.instance') as mail_module:
             await module.link_confirmed_email(user, 'person@example.test', server)
+            name = module.mail_account_name('person@example.test')
+        server.create_user.assert_awaited_once_with(name, name)
+        self.assertEqual(29, len(name))
         mail_module.return_value.set_email_for.assert_called_once_with(mail_user, 'person@example.test', confirmed=True)
         mail_user.save_val.assert_called_once_with('user_link', 123)
 
@@ -126,7 +142,8 @@ class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
         user.get_effective_user.return_value = user
         server.get_user_by_name.return_value = existing
         existing.get_linked_user.return_value = None
-        with patch('gdo.mail_connector.module_mail_connector.Logger.warning'):
+        with patch('gdo.mail_connector.module_mail_connector.Application.config', return_value='test-salt'), \
+             patch('gdo.mail_connector.module_mail_connector.Logger.warning'):
             await module.link_confirmed_email(user, 'person@example.test', server)
         existing.save_val.assert_not_called()
         server.create_user.assert_not_called()

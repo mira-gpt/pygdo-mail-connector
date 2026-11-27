@@ -1,6 +1,7 @@
 import hashlib
 from pathlib import Path
 import tomllib
+import zlib
 
 from gdo.base.GDO_Module import GDO_Module
 from gdo.base.Application import Application
@@ -27,7 +28,8 @@ class module_mail_connector(GDO_Module):
         settings = {}
         if path.is_file():
             with path.open('rb') as stream:
-                settings = tomllib.load(stream).get('imap', {})
+                config = tomllib.load(stream)
+            settings = config.get('imap', {})
             if not isinstance(settings, dict):
                 raise ValueError('mail connector secret.toml: [imap] must be a table')
         port = settings.get('port', 993)
@@ -50,9 +52,14 @@ class module_mail_connector(GDO_Module):
     def gdo_subscribe_events(self):
         Application.EVENTS.subscribe('user_email_confirmed', self.on_user_email_confirmed)
 
-    @staticmethod
-    def mail_account_name(email):
-        return 'mail_' + hashlib.sha256(email.encode('utf-8')).hexdigest()[:59]
+    def mail_account_name(self, email):
+        salt = Application.config('core.secret')
+        if not isinstance(salt, str) or not salt:
+            raise ValueError('Configure core.secret before linking mail accounts')
+        data = str(salt).encode('utf-8') + b'\0' + email.encode('utf-8')
+        digest = hashlib.md5(data, usedforsecurity=False).hexdigest()[:16]
+        checksum = f'{zlib.crc32(data):08x}'
+        return 'mail_' + digest + checksum
 
     def on_user_email_confirmed(self, user, email, previous_email=None):
         server = GDO_Server.get_by_connector('mail')
@@ -77,7 +84,8 @@ class module_mail_connector(GDO_Module):
         existing = server.get_user_by_name(name)
         if existing:
             linked = existing.get_linked_user()
-            if not linked or str(linked.get_id()) != str(master.get_id()):
+            if (existing.get_mail(confirmed=False) != email or not linked
+                    or str(linked.get_id()) != str(master.get_id())):
                 Logger.warning('Mail account already exists; refusing automatic relink.')
             return
         mail_user = await server.create_user(name, name)
