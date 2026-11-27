@@ -36,6 +36,8 @@ class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual('test-only', fields['mail_connector_imap_password'].get_val())
             self.assertTrue(fields['mail_connector_imap_password'].is_secret())
             self.assertEqual('Mail', fields['mail_connector_imap_folder'].get_val())
+            self.assertEqual('0', fields['mail_connector_userstuff'].get_val())
+            self.assertEqual('1', fields['mail_connector_mira_inbox'].get_val())
 
     def test_imap_rejects_invalid_secret_config(self):
         with tempfile.TemporaryDirectory() as directory:

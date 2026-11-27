@@ -37,9 +37,11 @@ checkpoint can cause a repeat. The checkpoint rejects a changed UIDVALIDITY
 rather than guessing whether old UIDs are safe. Oversized messages stop the
 batch for operator review.
 
-For an explicitly opted-in Mira mailbox, set module configuration
-`mail_connector_mira_inbox` to `1`; each archived message is then sent to the
-Mira session as `$inbox <path>`. Default is `0` for installations without Mira.
+`mail_connector_mira_inbox` defaults to `1`: each archived message is sent to
+the Mira session as `$inbox <path>`. Set it to `0` on installations without
+Mira or when this handoff is unwanted. `mail_connector_userstuff` defaults to
+`0` and is reserved for the future mail-to-user/command path; setting it to `1`
+does not implement or enable that path yet.
 On first use, the cursor starts at UID zero, so existing messages in the
 selected mailbox will be archived and, when opted in, generate events too.
 The event is submitted without interrupting the current task; submission is

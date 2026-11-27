@@ -45,7 +45,8 @@ class module_mail_connector(GDO_Module):
             GDT_String('mail_connector_imap_user').initial(str(settings.get('username', ''))),
             GDT_Secret('mail_connector_imap_password').initial(str(settings.get('password', ''))),
             GDT_String('mail_connector_imap_folder').not_null().initial(str(settings.get('folder', 'INBOX'))),
-            GDT_Bool('mail_connector_mira_inbox').not_null().initial('0'),
+            GDT_Bool('mail_connector_userstuff').not_null().initial('0'),
+            GDT_Bool('mail_connector_mira_inbox').not_null().initial('1'),
         ]
 
     def gdo_init(self):
