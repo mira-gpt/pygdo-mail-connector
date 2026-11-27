@@ -37,11 +37,11 @@ class module_mail_connector(GDO_Module):
             if key in settings and not isinstance(settings[key], str):
                 raise ValueError(f'mail connector IMAP {key} must be a string')
         return [
-            GDT_String('mail_connector_imap_host').initial(settings.get('host', '')),
+            GDT_String('mail_connector_imap_host').initial(str(settings.get('host', ''))),
             GDT_UInt('mail_connector_imap_port').not_null().initial(str(port)).min(1).max(65535),
-            GDT_String('mail_connector_imap_user').initial(settings.get('username', '')),
-            GDT_Secret('mail_connector_imap_password').initial(settings.get('password', '')),
-            GDT_String('mail_connector_imap_folder').not_null().initial(settings.get('folder', 'INBOX')),
+            GDT_String('mail_connector_imap_user').initial(str(settings.get('username', ''))),
+            GDT_Secret('mail_connector_imap_password').initial(str(settings.get('password', ''))),
+            GDT_String('mail_connector_imap_folder').not_null().initial(str(settings.get('folder', 'INBOX'))),
         ]
 
     def gdo_init(self):
