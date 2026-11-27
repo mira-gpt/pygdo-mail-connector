@@ -1,13 +1,38 @@
 import unittest
+import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from gdo.base.Render import Mode
+from gdo.base.Application import Application
 from gdo.core.Connector import Connector
 from gdo.mail_connector.connector.Mail import Mail
 from gdo.mail_connector.module_mail_connector import module_mail_connector
 
 
 class MailConnectorTest(unittest.IsolatedAsyncioTestCase):
+    def test_imap_defaults_are_loaded_from_private_toml(self):
+        Application.mode(Mode.render_cli)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'secret.toml'
+            path.write_text('[imap]\nhost="example.test"\nport=1993\nusername="mira@example.test"\npassword="test-only"\nfolder="Mail"\n')
+            with patch('gdo.mail_connector.module_mail_connector.Application.file_path', return_value=str(path)):
+                fields = {field.get_name(): field for field in module_mail_connector().gdo_module_config()}
+            self.assertEqual('example.test', fields['mail_connector_imap_host'].get_val())
+            self.assertEqual('1993', fields['mail_connector_imap_port'].get_val())
+            self.assertEqual('mira@example.test', fields['mail_connector_imap_user'].get_val())
+            self.assertEqual('test-only', fields['mail_connector_imap_password'].get_val())
+            self.assertTrue(fields['mail_connector_imap_password'].is_secret())
+            self.assertEqual('Mail', fields['mail_connector_imap_folder'].get_val())
+
+    def test_imap_rejects_invalid_secret_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'secret.toml'
+            path.write_text('[imap]\nport = true\n')
+            with patch('gdo.mail_connector.module_mail_connector.Application.file_path', return_value=str(path)):
+                with self.assertRaises(ValueError):
+                    module_mail_connector().gdo_module_config()
+
     def test_registers_mail_as_text_connector(self):
         with patch.object(Connector, 'register') as register:
             module_mail_connector().gdo_init()

@@ -1,4 +1,6 @@
 import hashlib
+from pathlib import Path
+import tomllib
 
 from gdo.base.GDO_Module import GDO_Module
 from gdo.base.Application import Application
@@ -21,12 +23,25 @@ class module_mail_connector(GDO_Module):
         return ['mail']
 
     def gdo_module_config(self):
+        path = Path(Application.file_path('protected/mail_connector/secret.toml'))
+        settings = {}
+        if path.is_file():
+            with path.open('rb') as stream:
+                settings = tomllib.load(stream).get('imap', {})
+            if not isinstance(settings, dict):
+                raise ValueError('mail connector secret.toml: [imap] must be a table')
+        port = settings.get('port', 993)
+        if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+            raise ValueError('mail connector IMAP port must be between 1 and 65535')
+        for key in ('host', 'username', 'password', 'folder'):
+            if key in settings and not isinstance(settings[key], str):
+                raise ValueError(f'mail connector IMAP {key} must be a string')
         return [
-            GDT_String('mail_connector_imap_host'),
-            GDT_UInt('mail_connector_imap_port').not_null().initial('993').min(1).max(65535),
-            GDT_String('mail_connector_imap_user'),
-            GDT_Secret('mail_connector_imap_password'),
-            GDT_String('mail_connector_imap_folder').not_null().initial('INBOX'),
+            GDT_String('mail_connector_imap_host').initial(settings.get('host', '')),
+            GDT_UInt('mail_connector_imap_port').not_null().initial(str(port)).min(1).max(65535),
+            GDT_String('mail_connector_imap_user').initial(settings.get('username', '')),
+            GDT_Secret('mail_connector_imap_password').initial(settings.get('password', '')),
+            GDT_String('mail_connector_imap_folder').not_null().initial(settings.get('folder', 'INBOX')),
         ]
 
     def gdo_init(self):

@@ -26,6 +26,18 @@ UIDVALIDITY tracking, sender verification and account-link authorization. A
 matching From address, an allowlist, or a DKIM signature alone does not prove
 the sender controls a specific mailbox.
 
+## Private IMAP settings
+
+`gdo_module_config()` reads defaults from `protected/mail_connector/secret.toml`;
+see `secret.toml.example` for the format. Restrict the private file to mode 600,
+keep it out of version control, and back it up separately. Existing values saved
+in the module configuration database override these defaults. Saving settings
+through PyGDO stores them in the database, including the password; `GDT_Secret`
+masks display but does not encrypt it. Protect database backups accordingly.
+Restart or reload the module to pick up file changes. The IMAP host and password
+must be supplied locally. This does not enable or connect the inactive connector,
+and outgoing SMTP remains configured separately in the existing mail settings.
+
 ## Ideas
 
 - Optionally show incoming mail flying into the video media window, with an
